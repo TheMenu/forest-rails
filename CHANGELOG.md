@@ -1,6 +1,9 @@
 # Change Log
 
 ## [Unreleased]
+### Added
+- Live Query - Let users define segments using SQL.
+-
 ### Changed
 - Sessions - Improve the error message if the environment secret is missing on session creation.
 
