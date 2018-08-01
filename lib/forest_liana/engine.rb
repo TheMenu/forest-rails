@@ -36,7 +36,29 @@ module ForestLiana
       File.basename($0) == 'rake'
     end
 
+    def database_available?
+      database_available = true
+      begin
+        ActiveRecord::Base.connection_pool.with_connection { |connection| connection.active? }
+      rescue => error
+        database_available = false
+        FOREST_LOGGER.error "No Apimap sent to Forest servers, it seems that the database is not accessible:\n#{error}"
+      end
+      database_available
+    end
+
     error = configure_forest_cors unless ENV['FOREST_CORS_DEACTIVATED']
+
+    def eager_load_active_record_descendants app
+      # HACK: Force the ActiveRecord descendants classes from ActiveStorage to load for
+      #       introspection.
+      if defined? ActiveStorage
+        ActiveStorage::Blob
+        ActiveStorage::Attachment
+      end
+
+      app.eager_load!
+    end
 
     config.after_initialize do |app|
       if !Rails.env.test? && !rake?
@@ -45,10 +67,12 @@ module ForestLiana
             "domains for CORS constraint:\n#{error}"
         end
 
-        app.eager_load!
+        eager_load_active_record_descendants(app)
 
-        # NOTICE: Do not run the code below on rails g forest_liana:install.
-        Bootstraper.new(app).perform if ForestLiana.env_secret || ForestLiana.secret_key
+        if database_available?
+          # NOTICE: Do not run the code below on rails g forest_liana:install.
+          Bootstraper.new(app).perform if ForestLiana.env_secret || ForestLiana.secret_key
+        end
       end
     end
   end

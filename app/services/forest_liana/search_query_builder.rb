@@ -2,26 +2,30 @@ module ForestLiana
   class SearchQueryBuilder
     REGEX_UUID = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
 
-    def initialize(resource, params, includes, collection)
-      @resource = @records = resource
+    attr_reader :fields_searched
+
+    def initialize(params, includes, collection)
       @params = params
       @includes = includes
       @collection = collection
+      @fields_searched = []
+      @search = @params[:search]
     end
 
-    def perform
+    def perform(resource)
+      @resource = @records = resource
       @records = search_param
       @records = filter_param
       @records = has_many_filter
       @records = belongs_to_filter
 
-      if @params[:search]
+      if @search
         ForestLiana.schema_for_resource(@resource).fields.each do |field|
           if field.try(:[], :search)
             begin
-              @records = field[:search].call(@records, @params[:search])
+              @records = field[:search].call(@records, @search)
             rescue => exception
-              FOREST_LOGGER.error "Cannot search properly on Smart Field :\n" \
+              FOREST_LOGGER.error "Cannot search properly on Smart Field:\n" \
                 "#{exception}"
             end
           end
@@ -46,37 +50,37 @@ module ForestLiana
     end
 
     def search_param
-      if @params[:search]
+      if @search
         conditions = []
 
         @resource.columns.each_with_index do |column, index|
+          @fields_searched << column.name if [:string, :text].include? column.type
           column_name = format_column_name(@resource.table_name, column.name)
           if (@collection.search_fields && !@collection.search_fields.include?(column.name))
             conditions
           elsif column.name == 'id'
             if column.type == :integer
-              value = @params[:search].to_i
+              value = @search.to_i
               conditions << "#{@resource.table_name}.id = #{value}" if value > 0
-            elsif REGEX_UUID.match(@params[:search])
-              conditions << "#{@resource.table_name}.id =
-                '#{@params[:search]}'"
+            elsif REGEX_UUID.match(@search)
+              conditions << "#{@resource.table_name}.id = :search_value_for_uuid"
             end
           # NOTICE: Rails 3 do not have a defined_enums method
           elsif @resource.respond_to?(:defined_enums) &&
             @resource.defined_enums.has_key?(column.name) &&
-            !@resource.defined_enums[column.name][@params[:search].downcase].nil?
+            !@resource.defined_enums[column.name][@search.downcase].nil?
             conditions << "#{column_name} =
-              #{@resource.defined_enums[column.name][@params[:search].downcase]}"
+              #{@resource.defined_enums[column.name][@search.downcase]}"
           elsif !(column.respond_to?(:array) && column.array) &&
             (column.type == :string || column.type == :text)
-            conditions << "LOWER(#{column_name}) LIKE '%#{@params[:search].downcase}%'"
+            conditions << "LOWER(#{column_name}) LIKE :search_value_for_string"
           end
         end
 
         # ActsAsTaggable
         if @resource.try(:taggable?) && @resource.respond_to?(:acts_as_taggable)
           @resource.acts_as_taggable.each do |field|
-            tagged_records = @records.tagged_with(@params[:search].downcase)
+            tagged_records = @records.tagged_with(@search.downcase)
             condition = acts_as_taggable_query(tagged_records)
             conditions << condition if condition
           end
@@ -133,7 +137,11 @@ module ForestLiana
           end
         end
 
-        @records = @resource.where(conditions.join(' OR '))
+        @records = @resource.where(
+          conditions.join(' OR '),
+          search_value_for_string: "%#{@search.downcase}%",
+          search_value_for_uuid: @search.to_s
+        )
       end
 
       @records
@@ -141,7 +149,7 @@ module ForestLiana
 
     def association_search_condition table_name, column_name
       column_name = format_column_name(table_name, column_name)
-      "LOWER(#{column_name}) LIKE '%#{@params[:search].downcase}%'"
+      "LOWER(#{column_name}) LIKE :search_value_for_string"
     end
 
     def filter_param
@@ -260,7 +268,19 @@ module ForestLiana
       operator, value = OperatorValueParser.parse(value)
       filter = OperatorValueParser
         .get_condition_end(subfield, operator, value, association.klass, @params[:timezone])
-      @records.where("#{association.table_name}.#{subfield} #{filter}")
+
+      association_name_pluralized = association.name.to_s.pluralize
+
+      if association_name_pluralized == association.table_name
+        # NOTICE: Default case. When the belongsTo association name and the referenced table name are identical.
+        association_name_for_condition = association.table_name
+      else
+        # NOTICE: When the the belongsTo association name and the referenced table name are identical.
+        #         Format with the ActiveRecord query generator style.
+        association_name_for_condition = "#{association_name_pluralized}_#{@resource.table_name}"
+      end
+
+      @records.where("#{association_name_for_condition}.#{subfield} #{filter}")
     end
 
     def belongs_to_filter

@@ -16,11 +16,14 @@ module ForestLiana
     def index
       begin
         if request.format == 'csv'
-          return head :forbidden unless ForestLiana::PermissionsChecker.new(@resource, 'export').is_authorized?
+          checker = ForestLiana::PermissionsChecker.new(@resource, 'export', @rendering_id)
+          return head :forbidden unless checker.is_authorized?
         elsif params.has_key?(:searchToEdit)
-          return head :forbidden unless ForestLiana::PermissionsChecker.new(@resource, 'searchToEdit').is_authorized?
+          checker = ForestLiana::PermissionsChecker.new(@resource, 'searchToEdit', @rendering_id)
+          return head :forbidden unless checker.is_authorized?
         else
-          return head :forbidden unless ForestLiana::PermissionsChecker.new(@resource, 'list').is_authorized?
+          checker = ForestLiana::PermissionsChecker.new(@resource, 'list', @rendering_id)
+          return head :forbidden unless checker.is_authorized?
         end
 
         getter = ForestLiana::ResourcesGetter.new(@resource, params)
@@ -39,9 +42,29 @@ module ForestLiana
       end
     end
 
+    def count
+      begin
+        checker = ForestLiana::PermissionsChecker.new(@resource, 'list', @rendering_id)
+        return head :forbidden unless checker.is_authorized?
+
+        getter = ForestLiana::ResourcesGetter.new(@resource, params)
+        getter.count
+
+        render serializer: nil, json: { count: getter.records_count }
+
+      rescue ForestLiana::Errors::LiveQueryError => error
+        render json: { errors: [{ status: 422, detail: error.message }] },
+          status: :unprocessable_entity, serializer: nil
+      rescue => error
+        FOREST_LOGGER.error "Records Index Count error: #{error}\n#{format_stacktrace(error)}"
+        internal_server_error
+      end
+    end
+
     def show
       begin
-        return head :forbidden unless ForestLiana::PermissionsChecker.new(@resource, 'show').is_authorized?
+        checker = ForestLiana::PermissionsChecker.new(@resource, 'show', @rendering_id)
+        return head :forbidden unless checker.is_authorized?
 
         getter = ForestLiana::ResourceGetter.new(@resource, params)
         getter.perform
@@ -56,7 +79,8 @@ module ForestLiana
 
     def create
       begin
-        return head :forbidden unless ForestLiana::PermissionsChecker.new(@resource, 'create').is_authorized?
+        checker = ForestLiana::PermissionsChecker.new(@resource, 'create', @rendering_id)
+        return head :forbidden unless checker.is_authorized?
 
         creator = ForestLiana::ResourceCreator.new(@resource, params)
         creator.perform
@@ -79,7 +103,8 @@ module ForestLiana
 
     def update
       begin
-        return head :forbidden unless ForestLiana::PermissionsChecker.new(@resource, 'update').is_authorized?
+        checker = ForestLiana::PermissionsChecker.new(@resource, 'update', @rendering_id)
+        return head :forbidden unless checker.is_authorized?
 
         updater = ForestLiana::ResourceUpdater.new(@resource, params)
         updater.perform
@@ -102,7 +127,8 @@ module ForestLiana
 
     def destroy
       begin
-        return head :forbidden unless ForestLiana::PermissionsChecker.new(@resource, 'delete').is_authorized?
+        checker = ForestLiana::PermissionsChecker.new(@resource, 'delete', @rendering_id)
+        return head :forbidden unless checker.is_authorized?
 
         @resource.destroy(params[:id])
         head :no_content
@@ -152,13 +178,20 @@ module ForestLiana
 
       json = serialize_models(
         records,
-        include: includes(getter),
-        fields: fields_to_serialize,
-        count: getter.count,
-        params: params
+        {
+          include: includes(getter),
+          fields: fields_to_serialize,
+          params: params
+        },
+        getter.search_query_builder.fields_searched
       )
 
       render serializer: nil, json: json
+    end
+
+    def get_collection
+      collection_name = ForestLiana.name_for(@resource)
+      @collection ||= ForestLiana.apimap.find { |collection| collection.name.to_s == collection_name }
     end
   end
 end

@@ -40,18 +40,17 @@ module ForestLiana
       force_utf8_encoding(json)
     end
 
-    def serialize_models(records, options = {})
+    def serialize_models(records, options = {}, fields_searched = [])
       options[:is_collection] = true
       json = JSONAPI::Serializer.serialize(records, options)
 
-      if options[:count]
-        json[:meta] = {} unless json[:meta]
-        json[:meta][:count] = options[:count]
-      end
-
-      if !options[:has_more].nil?
-        json[:meta] = {} unless json[:meta]
-        json[:meta][:has_more] = options[:has_more]
+      if options[:params] && options[:params][:search]
+        # NOTICE: Add the Smart Fields with a 'String' type.
+        fields_searched.concat(get_collection.string_smart_fields_names).uniq!
+        json['meta'] = {
+          decorators: ForestLiana::DecorationHelper
+            .decorate_for_search(json, fields_searched, options[:params][:search])
+        }
       end
 
       force_utf8_encoding(json)
@@ -68,6 +67,7 @@ module ForestLiana
 
           @jwt_decoded_token = JWT.decode(token, ForestLiana.auth_secret, true,
             { algorithm: 'HS256', leeway: 30 }).try(:first)
+          @rendering_id = @jwt_decoded_token['data']['relationships']['renderings']['data'][0]['id']
         else
           head :unauthorized
         end
@@ -150,7 +150,14 @@ module ForestLiana
             if model_association
               model_name = model_association.class_name
               # NOTICE: Join fields in case of model with self-references.
-              fields[model_name] = [fields[model_name], relation_fields].join(',')
+              if fields[model_name]
+                fields[model_name] = [
+                  fields[model_name],
+                  relation_fields
+                ].join(',').split(',').uniq.join(',')
+              else
+                fields[model_name] = relation_fields
+              end
             end
           end
           fields

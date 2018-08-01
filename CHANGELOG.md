@@ -2,6 +2,92 @@
 
 ## [Unreleased]
 
+## RELEASE 2.11.5 - 2018-07-31
+### Fixed
+- Search - Fix the broken search if the collection contains Array fields. [Regression introduced in 2.9.0]
+- Search - Highlight the records id if it matches with the search value.
+
+## RELEASE 2.11.4 - 2018-07-31
+### Fixed
+- Search - Fix the search while typing single quotes in the search value.
+
+## RELEASE 2.11.3 - 2018-07-30
+### Fixed
+- Records Display - Fix collections display for project using Ruby version inferior to 2.3.0. [Regression introduced in 2.10.1]
+
+## RELEASE 2.11.2 - 2018-07-30
+### Fixed
+- Smart BelongsTo - Fix the reference field values display in the records list of collections using Smart BelongsTo relationships.
+
+## RELEASE 2.11.1 - 2018-07-30
+### Fixed
+- Records Count - Fix list display error if the collection name is different from the class name (routing issue to compute the count).
+
+## RELEASE 2.11.0 - 2018-07-19
+### Changed
+- Performance - Improve the speed of listing the records by executing their count into another request.
+
+## RELEASE 2.10.5 - 2018-07-11
+### Fixed
+- HasMany Relationships - Fix the performance of the related data retrieval if the collection has hidden belongsTo associations in the list.
+
+## RELEASE 2.10.4 - 2018-07-11
+### Fixed
+- Mixpanel Integration - Only retrieve events that are less than 60 days old to be compliant with the Mixpanel's API.
+
+## RELEASE 2.10.3 - 2018-07-10
+### Fixed
+- ActiveStorage - Support ActiveStorage without having to set eager_load property to true in development environments.
+
+## RELEASE 2.10.2 - 2018-07-10
+### Fixed
+- Smart Views - Fix associated data retrieval from Smart Views (where the fields to retrieve are not specified in the query params).
+
+## RELEASE 2.10.1 - 2018-07-10
+### Fixed
+- Stripe Integration - Improve the error handling if the customer Stripe Id is not found.
+- Stripe Integration - Trial to prevent uninitialized constant errors with Stripe classes.
+
+## RELEASE 2.10.0 - 2018-07-10
+### Added
+- Mixpanel Integration - Add the integration to display the last 100 Mixpanel events of a "user" record.
+
+## RELEASE 2.9.2 - 2018-07-04
+### Fixed
+- Database Connection - If the database is not accessible on server start, the liana doesn't send an Apimap anymore (it was a "partial" Apimap in such case).
+
+## RELEASE 2.9.1 - 2018-07-03
+### Changed
+- Technical - Use the "official" domain for the default server host.
+
+### Fixed
+- Record Creation - Fix the search of belongsTo associated records in record creation forms if the belongsTo foreign key is a UUID.
+
+## RELEASE 2.9.0 - 2018-06-28
+### Added
+- Search - Display highlighted matches on table view when searching.
+
+## RELEASE 2.8.6 - 2018-06-27
+### Fixed
+- Intercom Integration - Users can now access to the Intercom Details page.
+
+## RELEASE 2.8.5 - 2018-06-26
+### Fixed
+- Namespacing - Prevent a potential error on server start if a ResourcesController class already exists in another lib of the client project.
+- Filters - Filtering on 2 different belongsTo foreign keys referencing the same table now returns the expected records.
+
+## RELEASE 2.8.4 - 2018-06-21
+### Changed
+- Onboarding - Improve the information message if the liana is properly setup and users run the "rails g forest_liana:install".
+
+### Fixed
+- Permissions - Fix automated permission for projects having multiple teams.
+
+## RELEASE 2.8.3 - 2018-06-20
+### Fixed
+- Onboarding - If the liana is properly setup and users run the "rails g forest_liana:install" command again, the task will be skipped.
+- Onboarding - The install generator now supports credentials.yml.enc file introduced in Rails 5.2.
+
 ## RELEASE 2.8.2 - 2018-06-18
 ### Fixed
 - Development Autoreload - Prevent "A copy of ForestLiana::ResourcesController has been removed from the module tree but is still active!" in development mode.

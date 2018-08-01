@@ -23,6 +23,18 @@ module ForestLiana
       end
     end
 
+    def count
+      begin
+        getter = HasManyGetter.new(@resource, @association, params)
+        getter.count
+
+        render serializer: nil, json: { count: getter.records_count }
+      rescue => error
+        FOREST_LOGGER.error "Association Index Count error: #{error}\n#{format_stacktrace(error)}"
+        internal_server_error
+      end
+    end
+
     def update
       begin
         updater = BelongsToUpdater.new(@resource, @association, params)
@@ -105,20 +117,28 @@ module ForestLiana
       records = getter.records.map { |record| get_record(record) }
 
       includes = getter.includes_for_serialization
-      if includes.length > 0
+      if fields_to_serialize && includes.length > 0
         association_name = ForestLiana.name_for(@association.klass)
         fields_to_serialize[association_name] += ",#{includes.join(',')}"
       end
 
       json = serialize_models(
         records,
-        include: includes,
-        fields: fields_to_serialize,
-        count: getter.count,
-        params: params
+        {
+          include: includes,
+          fields: fields_to_serialize,
+          params: params
+        },
+        getter.search_query_builder.fields_searched
       )
 
       render serializer: nil, json: json
+    end
+
+    def get_collection
+      model_association = @resource.reflect_on_association(params[:association_name].to_sym).klass
+      collection_name = ForestLiana.name_for(model_association)
+      @collection ||= ForestLiana.apimap.find { |collection| collection.name.to_s == collection_name }
     end
   end
 end

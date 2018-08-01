@@ -10,6 +10,7 @@ ForestLiana::Engine.routes.draw do
 
   # Associations
   get ':collection/:id/relationships/:association_name' => 'associations#index'
+  get ':collection/:id/relationships/:association_name/count' => 'associations#count'
   put ':collection/:id/relationships/:association_name' => 'associations#update'
   post ':collection/:id/relationships/:association_name' => 'associations#associate'
   delete ':collection/:id/relationships/:association_name' => 'associations#dissociate'
@@ -39,11 +40,15 @@ ForestLiana::Engine.routes.draw do
   get ':collection/:id/intercom_attributes' => 'intercom#attributes'
   get '(*collection)_intercom_conversations/:conversation_id' => 'intercom#conversation'
 
+  # Mixpanel Integration
+  get ':collection/:id/mixpanel_last_events' => 'mixpanel#last_events'
+
   # Devise support
   post '/actions/change-password' => 'devise#change_password'
 
   # CRUD
   get ':collection', to: router
+  get ':collection/count', to: router
   get ':collection/:id', to: router
   post ':collection', to: router
   put ':collection/:id', to: router

@@ -8,7 +8,7 @@ module ForestLiana
 
       render serializer: nil, json: serialize_models(getter.records, {
         context: { type: get_serializer_type('stripe_payments') },
-        count: getter.count,
+        meta: { count: getter.count },
         include: ['customer']
       })
     end
@@ -31,8 +31,8 @@ module ForestLiana
         refunder.perform
 
         render serializer: nil, json: {}
-      rescue Stripe::InvalidRequestError => err
-        render serializer: nil, json: { error: err.message }, status: 400
+      rescue ::Stripe::InvalidRequestError => error
+        render serializer: nil, json: { error: error.message }, status: 400
       end
     end
 
@@ -44,7 +44,7 @@ module ForestLiana
 
       render serializer: nil, json: serialize_models(getter.records, {
         context: { type: get_serializer_type('stripe_cards') },
-        count: getter.count,
+        meta: { count: getter.count },
         include: ['customer']
       })
     end
@@ -68,7 +68,7 @@ module ForestLiana
 
       render serializer: nil, json: serialize_models(getter.records, {
         context: { type: get_serializer_type('stripe_invoices') },
-        count: getter.count,
+        meta: { count: getter.count },
         include: ['customer']
       })
     end
@@ -92,7 +92,7 @@ module ForestLiana
 
       render serializer: nil, json: serialize_models(getter.records, {
         context: { type: get_serializer_type('stripe_subscriptions') },
-        count: getter.count,
+        meta: { count: getter.count },
         include: ['customer']
       })
     end
@@ -117,7 +117,7 @@ module ForestLiana
 
       render serializer: nil, json: serialize_models(getter.records, {
         context: { type: get_serializer_type('stripe_bank_accounts') },
-        count: getter.count,
+        meta: { count: getter.count },
         include: ['customer']
       })
     end

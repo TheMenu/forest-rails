@@ -1,25 +1,32 @@
 module ForestLiana
   class HasManyGetter < BaseGetter
+    attr_reader :search_query_builder
+    attr_reader :records_count
+
     def initialize(resource, association, params)
       @resource = resource
       @association = association
       @params = params
+      @collection_name = ForestLiana.name_for(model_association)
       @field_names_requested = field_names_requested
-      @collection = get_collection(ForestLiana.name_for(model_association))
+      @collection = get_collection(@collection_name)
+      includes_symbols = includes.map { |association| association.to_sym }
+      @search_query_builder = SearchQueryBuilder.new(@params, includes_symbols, @collection)
+
+      prepare_query()
     end
 
     def perform
-      @records = get_resource()
-        .find(@params[:id])
-        .send(@params[:association_name])
-        .eager_load(includes)
       @records = search_query
       @records = sort_query
     end
 
+    def count
+      @records_count = @records.count
+    end
+
     def search_query
-      includesSymbols = includes.map { |association| association.to_sym }
-      SearchQueryBuilder.new(@records, @params, includesSymbols, @collection).perform
+      @search_query_builder.perform(@records)
     end
 
     def includes
@@ -47,15 +54,11 @@ module ForestLiana
       @records.limit(limit).offset(offset)
     end
 
-    def count
-      @records.count
-    end
-
     private
 
     def field_names_requested
-      return nil unless @params[:fields] && @params[:fields][@association.table_name]
-      @params[:fields][@association.table_name].split(',')
+      return nil unless @params[:fields] && @params[:fields][@collection_name]
+      @params[:fields][@collection_name].split(',')
         .map { |name| name.to_sym }
     end
 
@@ -65,6 +68,13 @@ module ForestLiana
 
     def model_association
       @resource.reflect_on_association(@params[:association_name].to_sym).klass
+    end
+
+    def prepare_query
+      @records = get_resource()
+        .find(@params[:id])
+        .send(@params[:association_name])
+        .eager_load(includes)
     end
 
     def offset
